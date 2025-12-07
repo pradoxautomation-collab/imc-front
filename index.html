@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calculadora de IMC</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f2f4f8;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 480px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 24px 28px;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.6rem;
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: 600;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      background: #2563eb;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 12px 14px;
+      border-radius: 6px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      display: none;
+    }
+    .error {
+      margin-top: 12px;
+      color: #b91c1c;
+      font-size: 0.9rem;
+    }
+    small {
+      display: block;
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Calculadora de IMC</h1>
+
+    <form id="imc-form">
+      <label for="peso">Peso (kg)</label>
+      <input type="number" id="peso" name="peso" step="0.1" min="1" required />
+
+      <label for="altura">Altura (m)</label>
+      <input type="number" id="altura" name="altura" step="0.01" min="0.5" required />
+
+      <button type="submit" id="btn-calcular">Calcular IMC</button>
+
+      <div class="error" id="error"></div>
+
+      <small>
+        O IMC é calculado como peso / altura² e classificado segundo faixas como
+        abaixo do peso, peso normal, acima do peso e obesidade, de acordo com a
+        tabela da Organização Mundial da Saúde. [attached_file:1]
+      </small>
+    </form>
+
+    <div class="result" id="resultado">
+      <strong>Resultado:</strong>
+      <p id="texto-resultado"></p>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('imc-form');
+    const errorEl = document.getElementById('error');
+    const resultadoBox = document.getElementById('resultado');
+    const textoResultado = document.getElementById('texto-resultado');
+    const btn = document.getElementById('btn-calcular');
+
+    // TODO: troque esta URL pela URL pública do seu Webhook do n8n
+    const N8N_WEBHOOK_URL = 'https://SEU-DOMINIO-DO-N8N/webhook/calcular-imc';
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl.textContent = '';
+      resultadoBox.style.display = 'none';
+
+      const peso = parseFloat(document.getElementById('peso').value);
+      const altura = parseFloat(document.getElementById('altura').value);
+
+      if (!peso || !altura || peso <= 0 || altura <= 0) {
+        errorEl.textContent = 'Informe peso e altura válidos.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Calculando...';
+
+      try {
+        const resp = await fetch(N8N_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ peso, altura })
+        });
+
+        if (!resp.ok) {
+          throw new Error('Erro ao chamar o servidor');
+        }
+
+        const data = await resp.json();
+        // Espera que o n8n retorne algo como:
+        // { imc: "24.56", situacao: "Peso normal", peso: 80, altura: 1.8 }
+
+        const imc = data.imc ?? data[0]?.imc;
+        const situacao = data.situacao ?? data[0]?.situacao;
+
+        textoResultado.textContent =
+          `Seu IMC é ${imc} e sua classificação é: ${situacao}.`;
+        resultadoBox.style.display = 'block';
+      } catch (err) {
+        console.error(err);
+        errorEl.textContent = 'Não foi possível calcular o IMC. Tente novamente.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Calcular IMC';
+      }
+    });
+  </script>
+</body>
+</html>
